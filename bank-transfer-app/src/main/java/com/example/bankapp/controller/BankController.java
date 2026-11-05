@@ -15,6 +15,10 @@ public class BankController {
 
     private final BankService bankService;
 
+    // ------------------------------------------------------------------
+    // Dashboard
+    // ------------------------------------------------------------------
+
     @GetMapping("/")
     public String viewDashboard(@RequestParam(required = false) String keyword,
                                 Model model) {
@@ -22,7 +26,6 @@ public class BankController {
         var allCustomers = bankService.getAllCustomersOrdered();
         var transactions = bankService.getAllTransactions();
 
-        // Customers table (optional search by name)
         var customers = (keyword == null || keyword.isBlank())
                 ? allCustomers
                 : allCustomers.stream()
@@ -31,15 +34,13 @@ public class BankController {
                                 .contains(keyword.toLowerCase()))
                     .toList();
 
-        // Statistics
         double totalBalance = allCustomers.stream()
-                .mapToDouble(c -> ((Number) c.getBalance()).doubleValue())
+                .mapToDouble(c -> c.getBalance())
                 .sum();
 
         long successCount = transactions.stream()
                 .filter(t -> "SUCCESS".equals(t.getStatus().name()))
                 .count();
-
         long failedCount = transactions.size() - successCount;
 
         model.addAttribute("allCustomers", allCustomers);
@@ -52,7 +53,6 @@ public class BankController {
         model.addAttribute("successCount", successCount);
         model.addAttribute("failedCount", failedCount);
 
-        // Form backing objects (flash attributes may already have set these)
         if (!model.containsAttribute("transferRequest")) {
             model.addAttribute("transferRequest", new TransferRequest());
         }
@@ -63,6 +63,10 @@ public class BankController {
         return "bank";
     }
 
+    // ------------------------------------------------------------------
+    // Transfer
+    // ------------------------------------------------------------------
+
     @PostMapping("/transfer")
     public String handleTransfer(@ModelAttribute TransferRequest transferRequest,
                                  RedirectAttributes redirectAttributes) {
@@ -70,19 +74,23 @@ public class BankController {
             bankService.transfer(
                     transferRequest.getSourceAccountNumber(),
                     transferRequest.getTargetAccountNumber(),
-                    transferRequest.getAmount()
+                    transferRequest.getAmount(),
+                    transferRequest.isSimulateFailure()
             );
             redirectAttributes.addFlashAttribute("success",
                     "Transfer completed successfully!");
         } catch (Exception e) {
-            // The catch block runs after the transaction has rolled back
+            // Runs after the transaction has been rolled back
             redirectAttributes.addFlashAttribute("error",
                     "Transfer failed: " + e.getMessage());
         }
         return "redirect:/";
     }
 
-    // bank.html posts to /customers
+    // ------------------------------------------------------------------
+    // Customers
+    // ------------------------------------------------------------------
+
     @PostMapping({"/customers", "/customer/create"})
     public String createCustomer(@ModelAttribute Customer customer,
                                  RedirectAttributes redirectAttributes) {
@@ -95,5 +103,78 @@ public class BankController {
                     "Failed to create customer: " + e.getMessage());
         }
         return "redirect:/";
+    }
+
+    // ------------------------------------------------------------------
+    // Task 12: history, large transfers, deposit, withdraw
+    // ------------------------------------------------------------------
+
+    @GetMapping("/accounts/{accountNumber}/history")
+    public String history(@PathVariable String accountNumber,
+                          Model model,
+                          RedirectAttributes redirectAttributes) {
+        try {
+            Customer holder = bankService.getCustomerByAccountNumber(accountNumber);
+            model.addAttribute("holder", holder);
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/";
+        }
+        model.addAttribute("accountNumber", accountNumber);
+        model.addAttribute("transactions", bankService.getAccountHistory(accountNumber));
+        model.addAttribute("totalSent", bankService.getTotalSent(accountNumber));
+        return "history";
+    }
+
+    @GetMapping("/large-transfers")
+    public String largeTransfers(@RequestParam(defaultValue = "10000") Double min,
+                                 Model model) {
+        model.addAttribute("min", min);
+        model.addAttribute("transfers", bankService.getLargeTransfers(min));
+        return "large-transfers";
+    }
+
+    @GetMapping("/deposit")
+    public String depositForm(Model model) {
+        model.addAttribute("title", "Deposit Money");
+        model.addAttribute("action", "/deposit");
+        model.addAttribute("allCustomers", bankService.getAllCustomersOrdered());
+        return "cash";
+    }
+
+    @PostMapping("/deposit")
+    public String deposit(@RequestParam String accountNumber,
+                          @RequestParam(required = false) Double amount,
+                          RedirectAttributes redirectAttributes) {
+        try {
+            bankService.deposit(accountNumber, amount);
+            redirectAttributes.addFlashAttribute("success", "Deposit completed successfully!");
+            return "redirect:/";
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Deposit failed: " + e.getMessage());
+            return "redirect:/deposit";
+        }
+    }
+
+    @GetMapping("/withdraw")
+    public String withdrawForm(Model model) {
+        model.addAttribute("title", "Withdraw Money");
+        model.addAttribute("action", "/withdraw");
+        model.addAttribute("allCustomers", bankService.getAllCustomersOrdered());
+        return "cash";
+    }
+
+    @PostMapping("/withdraw")
+    public String withdraw(@RequestParam String accountNumber,
+                           @RequestParam(required = false) Double amount,
+                           RedirectAttributes redirectAttributes) {
+        try {
+            bankService.withdraw(accountNumber, amount);
+            redirectAttributes.addFlashAttribute("success", "Withdrawal completed successfully!");
+            return "redirect:/";
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Withdrawal failed: " + e.getMessage());
+            return "redirect:/withdraw";
+        }
     }
 }

@@ -27,4 +27,17 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
     // 4. Number of SUCCESS or FAILED transactions for the dashboard
     @Query("SELECT COUNT(t) FROM BankTransaction t WHERE t.status = :status")
     long countByStatus(@Param("status") TransactionStatus status);
+
+    // 5. (Task 12) Transfers (both accounts present) of at least :min, newest first
+    @Query("SELECT t FROM BankTransaction t WHERE t.amount >= :min " +
+           "AND t.sourceAccountNumber IS NOT NULL AND t.targetAccountNumber IS NOT NULL " +
+           "ORDER BY t.timestamp DESC")
+    List<BankTransaction> findLargeTransfers(@Param("min") Double min);
+
+    // 6. (Task 12) Total amount sent by an account (SUM of SUCCESS transfers)
+    @Query("SELECT COALESCE(SUM(t.amount), 0.0) FROM BankTransaction t " +
+           "WHERE t.sourceAccountNumber = :account AND t.status = :status " +
+           "AND t.targetAccountNumber IS NOT NULL")
+    Double totalSentBy(@Param("account") String account,
+                       @Param("status") TransactionStatus status);
 }
