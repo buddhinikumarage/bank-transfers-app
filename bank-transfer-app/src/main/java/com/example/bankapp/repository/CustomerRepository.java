@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,12 +38,14 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     @Query(value = "SELECT COUNT(*) FROM customers", nativeQuery = true)
     long countCustomersNative();
 
-    // 7. UPDATE + @Modifying: Atomically subtracts money only if balance >= amount; returns rows changed (1 or 0)
+    // 7. UPDATE + @Modifying: subtracts money only if balance >= amount; returns rows changed (1 or 0)
+    @Transactional
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Customer c SET c.balance = c.balance - :amount WHERE c.accountNumber = :accountNumber AND c.balance >= :amount")
     int debit(@Param("accountNumber") String accountNumber, @Param("amount") Double amount);
 
     // 8. UPDATE + @Modifying: Adds money to an account
+    @Transactional
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Customer c SET c.balance = c.balance + :amount WHERE c.accountNumber = :accountNumber")
     int credit(@Param("accountNumber") String accountNumber, @Param("amount") Double amount);

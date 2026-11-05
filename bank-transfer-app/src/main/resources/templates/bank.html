@@ -303,16 +303,16 @@
                 <tr th:each="t : ${transactions}">
                     <td th:text="${t.id}"></td>
 
-                    <td th:text="${t.createdAt != null
+                    <td th:text="${t.timestamp != null
                         ? #temporals.format(
-                            t.createdAt, 'yyyy-MM-dd HH:mm:ss')
+                            t.timestamp, 'yyyy-MM-dd HH:mm:ss')
                         : '-'}"></td>
 
-                    <td th:text="${t.fromAccount != null
-                        ? t.fromAccount : '-'}"></td>
+                    <td th:text="${t.sourceAccountNumber != null
+                        ? t.sourceAccountNumber : '-'}"></td>
 
-                    <td th:text="${t.toAccount != null
-                        ? t.toAccount : '-'}"></td>
+                    <td th:text="${t.targetAccountNumber != null
+                        ? t.targetAccountNumber : '-'}"></td>
 
                     <td class="num"
                         th:text="${#numbers.formatDecimal(
